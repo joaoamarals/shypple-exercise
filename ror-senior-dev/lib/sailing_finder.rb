@@ -16,11 +16,9 @@ class SailingFinder
   end
 
   def call
-    sailings = direct_sailings(origin: @origin, destination: @destination) if @options[:direct]
-
     return unless @criteria == 'cheapest'
 
-    find_cheapest(sailings)
+    find_cheapest(origin: @origin, destination: @destination)
   end
 
   private
@@ -29,7 +27,9 @@ class SailingFinder
     sailings.filter { |sailing| sailing['origin_port'] == origin && sailing['destination_port'] == destination }
   end
 
-  def find_cheapest(sailings)
+  def find_cheapest(origin:, destination:)
+    sailings = direct_sailings(origin: origin, destination: destination) if @options[:direct]
+
     sailings = sailings.each { |sailing| add_rate_info(sailing) }
     sailings.min_by { |sailing| rate_in_euros(sailing) }
   end
@@ -46,6 +46,17 @@ class SailingFinder
     exchange_rate = exchange_rates[sailing['departure_date']]
 
     sailing['rate'] * exchange_rate[sailing['rate_currency'].downcase]
+  end
+
+  def find_cheapest_n_legs(origin, destination, leg)
+    return if leg == 0
+
+
+
+    {
+      level_0: []
+    }
+
   end
 
   def rates
