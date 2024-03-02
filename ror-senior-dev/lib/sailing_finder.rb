@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require 'json'
-require 'byebug'
-require 'date'
 require 'models/sailing'
-require 'rate_converter'
+require 'models/sailing_leg'
+require 'models/response_data'
 
+# Find a sailing for an origin/destination based on a given criteria ['cheapest', 'fastest']
+# and some options [:max_legs, :direct]
 class SailingFinder
   def self.call(origin:, destination:, criteria:, options: {})
     new(origin:, destination:, criteria:, options:).call
@@ -31,123 +31,100 @@ class SailingFinder
   def find_cheapest_sailing
     @requested_sailing = []
 
-    find_sailings(origin: @requested_origin, sailings: cheapest_connections)
+    set_requested_sailings(origin: @requested_origin, available_legs: cheapest_connections)
 
-    @requested_sailing.min_by { |sailing| total_rate(sailing) }
+    @requested_sailing.min_by(&:total_rate)
   end
 
   def find_fastest_sailing
     @requested_sailing = []
 
-    find_sailings(origin: @requested_origin, sailings: fastest_connections)
+    set_requested_sailings(origin: @requested_origin, available_legs: fastest_connections)
 
-    @requested_sailing.min_by { |sailing| total_duration(sailing) }
+    @requested_sailing.min_by(&:total_duration)
   end
 
-  def fastest_connections
-    fastest_connections = []
-
-    all_origins.each do |origin|
-      all_destinations.each do |destination|
-        next if origin == destination
-
-        sailing = find_fastest_direct(origin:, destination:)
-
-        next unless sailing
-
-        fastest_connections << sailing
-      end
-    end
-
-    fastest_connections
-  end
-
-  def find_fastest_direct(origin:, destination:)
-    sailings = direct_sailings(origin:, destination:)
-
-    sailings.min_by(&:duration)
-  end
-
-  def find_sailings(origin:, sailings:, uncompleted_sailings: [])
+  def set_requested_sailings(origin:, available_legs:, uncompleted_sailings: [])
     return if max_legs_reached?
 
-    from_origin = sailings.filter { |sailing| sailing.origin_port == origin }
+    from_origin = available_legs.select { |leg| leg.origin_port == origin }
 
-    other_destinations = []
-
-    from_origin.each do |sailing|
-      if sailing.destination_port == @requested_destination
-        @requested_sailing << [*uncompleted_sailings, sailing]
-        next
+    other_destinations = from_origin.reduce([]) do |acc, sailing_leg|
+      if sailing_leg.destination_port == @requested_destination
+        @requested_sailing << Sailing.new([*uncompleted_sailings, sailing_leg])
+        next acc
       end
 
-      other_destinations << sailing
+      acc << sailing_leg
     end
 
-    other_destinations.each do |sailing|
-      uncompleted_sailings << sailing
-      find_sailings(origin: sailing.destination_port, uncompleted_sailings:, sailings:)
+    other_destinations.each do |sailing_leg|
+      set_requested_sailings(origin: sailing_leg.destination_port, uncompleted_sailings: [sailing_leg], available_legs:)
     end
-  end
-
-  def total_rate(sailing)
-    sailing.reduce(0) { |sum, s| sum + rate_in_euro(s) }
-  end
-
-  def total_duration(sailing)
-    sailing.reduce(0) { |sum, s| sum + s.duration }
   end
 
   def max_legs_reached?
     return false unless @max_legs
+    return false unless @requested_sailing.any?
 
-    @requested_sailing.last&.size == @max_legs
+    @requested_sailing.max_by { |s| s.legs.size }.legs.size == @max_legs
+  end
+
+  def fastest_connections
+    build_od_matrix_by do |origin:, destination:|
+      fastest_direct_leg(origin:, destination:)
+    end
   end
 
   def cheapest_connections
-    cheapest_rates = []
+    build_od_matrix_by do |origin:, destination:|
+      cheapest_direct_leg(origin:, destination:)
+    end
+  end
 
-    all_origins.each do |origin|
-      all_destinations.each do |destination|
+  def build_od_matrix_by
+    matrix = []
+
+    available_origins.each do |origin|
+      available_destinations.each do |destination|
         next if origin == destination
 
-        sailing = find_cheapest_direct(origin:, destination:)
+        sailing = yield(origin:, destination:)
 
         next unless sailing
 
-        cheapest_rates << sailing
+        matrix << sailing
       end
     end
 
-    cheapest_rates
+    matrix
   end
 
-  def all_origins
-    sailings.map(&:origin_port).uniq
+  def fastest_direct_leg(origin:, destination:)
+    sailings = sailing_legs_for(origin:, destination:)
+
+    sailings.min_by(&:duration)
   end
 
-  def all_destinations
-    sailings.map(&:destination_port).uniq
+  def cheapest_direct_leg(origin:, destination:)
+    sailing_legs_for(origin:, destination:).min_by(&:rate_in_euro)
   end
 
-  def find_cheapest_direct(origin:, destination:)
-    sailings = direct_sailings(origin:, destination:)
-
-    sailings.min_by { |sailing| rate_in_euro(sailing) }
+  def available_origins
+    sailing_legs.map(&:origin_port).uniq
   end
 
-  def direct_sailings(origin:, destination:)
-    sailings.filter { |sailing| sailing.origin_port == origin && sailing.destination_port == destination }
+  def available_destinations
+    sailing_legs.map(&:destination_port).uniq
   end
 
-  def rate_in_euro(sailing)
-    RateConverter.call(rate: sailing.rate, date: sailing.departure_date,
-                       rate_currency: sailing.rate_currency, target_currency: 'EUR')
+  def sailing_legs_for(origin:, destination:)
+    sailing_legs.select { |sailing| sailing.origin_port == origin && sailing.destination_port == destination }
   end
 
   # @return [Array<Sailing>]
-  def sailings
-    response_data['sailings'].map { |sailing_info| Sailing.new(add_rate_info(sailing_info)) }
+  def sailing_legs
+    response_data['sailings'].map { |sailing_info| SailingLeg.new(add_rate_info(sailing_info)) }
   end
 
   def add_rate_info(sailing)
@@ -162,7 +139,6 @@ class SailingFinder
   end
 
   def response_data
-    file = File.read('./response.json')
-    JSON.parse(file)
+    ResponseData.fetch
   end
 end

@@ -1,3 +1,7 @@
+# frozen_string_literal: true
+
+require 'models/response_data'
+
 class RateConverter
   def self.call(rate:, date:, rate_currency:, target_currency:)
     new(rate:, date:, rate_currency:, target_currency:).call
@@ -23,11 +27,6 @@ class RateConverter
   end
 
   def exchange_rates
-    response_data['exchange_rates']
-  end
-
-  def response_data
-    file = File.read('./response.json')
-    JSON.parse(file)
+    ResponseData.fetch['exchange_rates']
   end
 end
