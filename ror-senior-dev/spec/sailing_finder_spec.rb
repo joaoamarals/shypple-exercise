@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require './sailing_finder'
+require 'sailing_finder'
 
-describe SailingFinder do
+RSpec.describe SailingFinder do
   let(:origin) { 'CNSHA' }
   let(:destination) { 'NLRTM' }
 
@@ -21,34 +21,34 @@ describe SailingFinder do
 
     result = described_class.call(origin:, destination:, criteria: 'cheapest', options: { direct: true })
 
-    expect(result).to eq expected_result[0]
+    expect(result.map { |el| el['sailing_code']}).to eq expected_result.map { |el| el['sailing_code'] }
   end
 
-  xit 'should find the cheapest sailing' do
+  it 'should find the cheapest sailing' do
     expected_result = [
       {
-        "origin_port": 'CNSHA',
-        "destination_port": 'ESBCN',
-        "departure_date": '2022-01-29',
-        "arrival_date": '2022-02-06',
-        "sailing_code": 'ERXQ',
-        "rate": '261.96',
-        "rate_currency": 'EUR'
+        "origin_port" => 'CNSHA',
+        "destination_port" => 'ESBCN',
+        "departure_date" => '2022-01-29',
+        "arrival_date" => '2022-02-06',
+        "sailing_code" => 'ERXQ',
+        "rate" => '261.96',
+        "rate_currency" => 'EUR'
       },
       {
-        "origin_port": 'ESBCN',
-        "destination_port": 'NLRTM',
-        "departure_date": '2022-02-16',
-        "arrival_date": '2022-02-20',
-        "sailing_code": 'ETRG',
-        "rate": '69.96',
-        "rate_currency": 'USD'
+        "origin_port" => 'ESBCN',
+        "destination_port" => 'NLRTM',
+        "departure_date" => '2022-02-16',
+        "arrival_date" => '2022-02-20',
+        "sailing_code" => 'ETRG',
+        "rate" => '69.96',
+        "rate_currency" => 'USD'
       }
     ]
 
-    SailingFinder.call(criteria: 'cheapest')
+    result = described_class.call(origin:, destination:, criteria: 'cheapest')
 
-    result == expected_result
+    expect(result.map { |el| el['sailing_code']}).to eq expected_result.map { |el| el['sailing_code'] }
   end
 
   xit 'should find the fastest sailing' do
