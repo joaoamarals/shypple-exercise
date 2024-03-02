@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'json'
 require 'byebug'
 
@@ -17,11 +18,9 @@ class SailingFinder
   end
 
   def call
-    if @criteria == 'cheapest'
-      find_cheapest_sailing
-    elsif @criteria == 'fastest'
+    return unless @criteria == 'cheapest'
 
-    end
+    find_cheapest_sailing
   end
 
   private
@@ -54,7 +53,7 @@ class SailingFinder
 
     other_destinations.each do |sailing|
       uncompleted_sailings << sailing
-      find_sailings(origin: sailing['destination_port'], uncompleted_sailings: uncompleted_sailings)
+      find_sailings(origin: sailing['destination_port'], uncompleted_sailings:)
     end
   end
 
@@ -75,7 +74,7 @@ class SailingFinder
       all_destinations.each do |destination|
         next if origin == destination
 
-        sailing = find_cheapest_direct(origin: origin, destination: destination)
+        sailing = find_cheapest_direct(origin:, destination:)
 
         next unless sailing
 
@@ -87,7 +86,7 @@ class SailingFinder
   end
 
   def find_cheapest_direct(origin:, destination:)
-    sailings = direct_sailings(origin: origin, destination: destination)
+    sailings = direct_sailings(origin:, destination:)
 
     sailings = sailings.each { |sailing| add_rate_info(sailing) }
     sailings.min_by { |sailing| sailing['rate_in_euros'] }
