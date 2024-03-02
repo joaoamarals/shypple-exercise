@@ -33,7 +33,7 @@ RSpec.describe SailingFinder do
 
       result = described_class.call(origin:, destination:, criteria: 'cheapest')
 
-      expect(result.map { |el| el['sailing_code'] }).to eq(expected_result.map { |el| el['sailing_code'] })
+      expect(result.map(&:sailing_code)).to eq(expected_result.map { |el| el['sailing_code'] })
     end
 
     context 'and direct sailings' do
@@ -52,7 +52,7 @@ RSpec.describe SailingFinder do
 
         result = described_class.call(origin:, destination:, criteria:, options: { direct: true })
 
-        expect(result.map { |el| el['sailing_code'] }).to eq(expected_result.map { |el| el['sailing_code'] })
+        expect(result.map(&:sailing_code)).to eq(expected_result.map { |el| el['sailing_code'] })
       end
     end
 
@@ -73,7 +73,7 @@ RSpec.describe SailingFinder do
         result = described_class.call(origin:, destination:, criteria:, options: { direct: true })
 
         expect(result.size).to be <= 1
-        expect(result.map { |el| el['sailing_code'] }).to eq(expected_result.map { |el| el['sailing_code'] })
+        expect(result.map(&:sailing_code)).to eq(expected_result.map { |el| el['sailing_code'] })
       end
 
       it 'should find the cheapest with a maximum of 2 legs', :aggregate_failures do
@@ -101,7 +101,7 @@ RSpec.describe SailingFinder do
         result = described_class.call(origin:, destination:, criteria:, options: { max_legs: 2 })
 
         expect(result.size).to be <= 2
-        expect(result.map { |el| el['sailing_code'] }).to eq(expected_result.map { |el| el['sailing_code'] })
+        expect(result.map(&:sailing_code)).to eq(expected_result.map { |el| el['sailing_code'] })
       end
 
       context 'when the origin is not reachable' do
@@ -142,7 +142,7 @@ RSpec.describe SailingFinder do
 
       result = SailingFinder.call(origin:, destination:, criteria:)
 
-      expect(result.map { |el| el['sailing_code'] }).to eq(expected_result.map { |el| el['sailing_code'] })
+      expect(result.map(&:sailing_code)).to eq(expected_result.map { |el| el['sailing_code'] })
     end
   end
 end
