@@ -124,14 +124,25 @@ RSpec.describe SailingFinder do
         end
       end
     end
-
   end
 
   context 'when the criteria is the fastest' do
     let(:criteria) { 'fastest' }
 
     it 'should find the fastest sailing' do
-      SailingFinder.call(origin:, destination:, criteria:)
+      expected_result = [
+        {
+          'origin_port' => 'CNSHA',
+          'destination_port' => 'NLRTM',
+          'departure_date' => '2022-01-29',
+          'arrival_date' => '2022-02-15',
+          'sailing_code' => 'QRST'
+        }
+      ]
+
+      result = SailingFinder.call(origin:, destination:, criteria:)
+
+      expect(result.map { |el| el['sailing_code'] }).to eq(expected_result.map { |el| el['sailing_code'] })
     end
   end
 end

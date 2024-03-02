@@ -2,6 +2,7 @@
 
 require 'json'
 require 'byebug'
+require 'date'
 
 class SailingFinder
   class << self
@@ -18,27 +19,74 @@ class SailingFinder
   end
 
   def call
-    return unless @criteria == 'cheapest'
-
-    find_cheapest_sailing
+    if @criteria == 'cheapest'
+      find_cheapest_sailing
+    elsif @criteria == 'fastest'
+      find_fastest_sailing
+    end
   end
 
   private
 
+  def find_fastest_sailing
+    @requested_sailings = []
+
+    find_sailings(origin: @requested_origin, sailings: fastest_connections)
+
+    @requested_sailings.min_by { |sailing| total_duration(sailing) }
+  end
+
+  def fastest_connections
+    fastest_connections = []
+
+    all_origins.each do |origin|
+      all_destinations.each do |destination|
+        next if origin == destination
+
+        sailing = find_fastest_direct(origin:, destination:)
+
+        next unless sailing
+
+        fastest_connections << sailing
+      end
+    end
+
+    fastest_connections
+  end
+
+  def find_fastest_direct(origin:, destination:)
+    sailings = direct_sailings(origin:, destination:)
+
+    sailings.min_by { |sailing| sailing_duration(sailing) }
+  end
+
+  def total_duration(sailing)
+    sailing.reduce(0) { |sum, s| sum + sailing_duration(s) }
+  end
+
+  def sailing_duration(sailing)
+    transform_date(sailing['arrival_date']) - transform_date(sailing['departure_date'])
+  end
+
+  def transform_date(str_date)
+    date = str_date.split('-')
+    Date.new(date[0].to_i, date[1].to_i, date[2].to_i)
+  end
+
   def find_cheapest_sailing
     @requested_sailings = []
 
-    find_sailings(origin: @requested_origin)
+    find_sailings(origin: @requested_origin, sailings: cheapest_connections)
 
     @requested_sailings.min_by do |sailing|
       total_rate(sailing)
     end
   end
 
-  def find_sailings(origin:, uncompleted_sailings: [])
+  def find_sailings(origin:, sailings:, uncompleted_sailings: [])
     return if max_legs_reached?
 
-    from_origin = cheapest_connections.filter { |connection| connection['origin_port'] == origin }
+    from_origin = sailings.filter { |connection| connection['origin_port'] == origin }
 
     other_destinations = []
 
@@ -53,7 +101,7 @@ class SailingFinder
 
     other_destinations.each do |sailing|
       uncompleted_sailings << sailing
-      find_sailings(origin: sailing['destination_port'], uncompleted_sailings:)
+      find_sailings(origin: sailing['destination_port'], uncompleted_sailings:, sailings:)
     end
   end
 
